@@ -50,12 +50,12 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\n\n// Garante que as listas existem na resposta da API\nconst topGainers = response.top_gainers || [];\nconst topLosers = response.top_losers || [];\n\nconst combinedList = [];\n\n// Função auxiliar para formatar os dados de cada ação\nfunction formatStock(stock, isGainer) {\n    return {\n        ticker: stock.ticker,\n        price: parseFloat(stock.price),\n        change_percent: parseFloat(stock.change_percentage.replace('%', '')),\n        // Adicionamos o \"type\" para facilitar a separação no relatório final\n        type: isGainer ? 'TOP' : 'FLOP'\n    };\n}\n\n// Adiciona os ganhadores\ntopGainers.forEach(stock => combinedList.push({ json: formatStock(stock, true) }));\n\n// Adiciona os perdedores\ntopLosers.forEach(stock => combinedList.push({ json: formatStock(stock, false) }));\n\nreturn combinedList;"
+        "jsCode": "const response = $input.first().json;\n\n// Garante que as listas existem na resposta da API\nconst topGainers = response.top_gainers || [];\nconst topLosers = response.top_losers || [];\n\nconst combinedList = [];\n\n// Função auxiliar para formatar os dados de cada ação\nfunction formatStock(stock, isGainer) {\n    // 1. Pega a string de porcentagem (ex: \"1.23%\")\n    const percentStr = stock.change_percentage;\n    \n    // 2. CRIAÇÃO DO FALLBACK: Se percentStr existe, remove o '%' e converte para número. Caso contrário, usa 0.\n    const numericPercent = (percentStr && percentStr.includes('%')) \n        ? parseFloat(percentStr.replace('%', '')) \n        : 0;\n\n    return {\n        ticker: stock.ticker,\n        price: parseFloat(stock.price),\n        change_percentage: numericPercent, // <-- Usando o valor seguro\n        type: isGainer ? 'TOP' : 'FLOP'\n    };\n}\n\n// Adiciona os ganhadores\ntopGainers.forEach(stock => combinedList.push({ json: formatStock(stock, true) }));\n\n// Adiciona os perdedores\ntopLosers.forEach(stock => combinedList.push({ json: formatStock(stock, false) }));\n\nreturn combinedList;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        128,
+        16,
         0
       ],
       "id": "92cd4860-5edb-4c4a-813f-dc5e78d58fff",
@@ -63,16 +63,39 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\n// Os 5 Top Gainers estão nos índices 0 a 4\nconst topGainers = items.slice(0, 5); \n\n// Os 5 Top Losers estão nos índices 20 a 24 (supondo que a API retorna 20 gainers, os losers começam no índice 20)\nconst topLosers = items.slice(20, 25);     \n\n// Função auxiliar para criar a tabela HTML\nfunction formatList(title, list, isPositive) {\n    let html = `<h2>${title}</h2>`;\n    html += '<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\" style=\"width: 100%; border-collapse: collapse;\">';\n    html += '<tr style=\"background-color: #f2f2f2;\"><th>Ação (Ticker)</th><th>Variação Percentual</th></tr>';\n    \n    // Dentro da função formatList:\nlist.forEach(item => {\n    const color = isPositive ? 'green' : 'red';\n    \n    // Variável que pode estar undefined\n    const changeValue = item.json.change_percentage; \n    \n    // VERIFICAÇÃO DE SEGURANÇA: Se o valor for um número, formata. Caso contrário, exibe 'N/A'.\n    const percent = (changeValue !== undefined && !isNaN(changeValue)) \n        ? changeValue.toFixed(2) + '%' \n        : 'N/A';\n    \n    // ... restante do HTML ...\n        \n        html += `<tr>\n                    <td>${item.json.ticker}</td>\n                    <td style=\"color: ${color}; font-weight: bold;\">${percent}</td>\n                 </tr>`;\n    });\n    \n    html += '</table>';\n    return html;\n}\n\n// Monta o corpo completo do relatório\nconst reportHTML = `\n    <h1>📊 Resumo do Mercado Diário: Top & Flop 5</h1>\n    <p>Relatório gerado por automação via n8n.</p>\n    ${formatList('🚀 As 5 Maiores Altas', topGainers, true)}\n    <br>\n    ${formatList('📉 As 5 Maiores Baixas', topLosers, false)}\n    <p>Dados fornecidos pela Alpha Vantage.</p>\n`;\n\n// Retorna o resultado em um único item para o próximo nó\nreturn [{\n    json: {\n        reportBody: reportHTML\n    }\n}];"
+        "jsCode": "const items = $input.all();\n\n// Os 5 Top Gainers estão nos índices 0 a 4\nconst topGainers = items.slice(0, 5); \n\n// Os 5 Top Losers estão nos índices 20 a 24 (supondo que a API retorna 20 gainers, os losers começam no índice 20)\nconst topLosers = items.slice(20, 25);     \n\n// Função auxiliar para criar a tabela HTML\nfunction formatList(title, list, isPositive) {\n    let html = `<h2>${title}</h2>`;\n    html += '<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\" style=\"width: 100%; border-collapse: collapse;\">';\n    html += '<tr style=\"background-color: #f2f2f2;\"><th>Ação (Ticker)</th><th>Variação Percentual</th></tr>';\n    \n    // Dentro da função formatList:\nlist.forEach(item => {\n    const color = isPositive ? 'green' : 'red';\n    \n    // Variável que pode estar undefined\n    const changeValue = item.json.change_percentage; \n    \n    // VERIFICAÇÃO DE SEGURANÇA: Se o valor for um número, formata. Caso contrário, exibe 'N/A'.\n    const percent = (changeValue !== undefined && !isNaN(changeValue)) \n        ? changeValue.toFixed(2) + '%' \n        : 'N/A';\n    \n        \n        html += `<tr>\n                    <td>${item.json.ticker}</td>\n                    <td style=\"color: ${color}; font-weight: bold;\">${percent}</td>\n                 </tr>`;\n    });\n    \n    html += '</table>';\n    return html;\n}\n\n// Monta o corpo completo do relatório\nconst reportHTML = `\n    <h1>📊 Resumo do Mercado Diário: Top & Flop 5</h1>\n    <p>Relatório gerado por automação via n8n.</p>\n    ${formatList('🚀 As 5 Maiores Altas', topGainers, true)}\n    <br>\n    ${formatList('📉 As 5 Maiores Baixas', topLosers, false)}\n    <p>Dados fornecidos pela Alpha Vantage.</p>\n`;\n\n// Retorna o resultado em um único item para o próximo nó\nreturn [{\n    json: {\n        reportBody: reportHTML\n    }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        400,
+        176,
         0
       ],
       "id": "b01ff408-7509-4fd9-a0b0-be6a180ff8c5",
       "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "sendTo": "rafaelpibbf@gmail.com",
+        "subject": "=[Automação n8n] Relatório Diário Top & Flop 5 - {{ $now.toFormat('dd/MM/yyyy') }}",
+        "message": "={{ $json.reportBody }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        352,
+        0
+      ],
+      "id": "432b10bd-e3b3-4c20-b283-205a1a27a9e8",
+      "name": "Send a message",
+      "webhookId": "58a179d8-adb5-4916-b39b-8fedc73fda1f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "1BoCoUf5ucMiif9E",
+          "name": "Gmail account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -109,13 +132,24 @@
           }
         ]
       ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "versionId": "16b36ff3-aff8-4fbf-ac91-822c698cf108",
+  "versionId": "2637084e-43dc-478e-b25e-2103729c046a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "97aa7a41d91ee5aac5ba6c12ccd040c8573c788d38ca6cbcc5ed1f3fdad75f6c"
