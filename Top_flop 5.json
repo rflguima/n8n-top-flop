@@ -1,0 +1,125 @@
+{
+  "name": "Top/flop 5",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://www.alphavantage.co/query",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "function",
+              "value": "TOP_GAINERS_LOSERS"
+            },
+            {
+              "name": "apikey",
+              "value": "MV8FT90U2LHC3T41"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -160,
+        0
+      ],
+      "id": "67047987-f066-40d6-9751-80420f432366",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 18 * * 1-5"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        0
+      ],
+      "id": "01474f00-82f4-4f0d-af76-17acf5ccdbef",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\n\n// Garante que as listas existem na resposta da API\nconst topGainers = response.top_gainers || [];\nconst topLosers = response.top_losers || [];\n\nconst combinedList = [];\n\n// Função auxiliar para formatar os dados de cada ação\nfunction formatStock(stock, isGainer) {\n    return {\n        ticker: stock.ticker,\n        price: parseFloat(stock.price),\n        change_percent: parseFloat(stock.change_percentage.replace('%', '')),\n        // Adicionamos o \"type\" para facilitar a separação no relatório final\n        type: isGainer ? 'TOP' : 'FLOP'\n    };\n}\n\n// Adiciona os ganhadores\ntopGainers.forEach(stock => combinedList.push({ json: formatStock(stock, true) }));\n\n// Adiciona os perdedores\ntopLosers.forEach(stock => combinedList.push({ json: formatStock(stock, false) }));\n\nreturn combinedList;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        128,
+        0
+      ],
+      "id": "92cd4860-5edb-4c4a-813f-dc5e78d58fff",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Os 5 Top Gainers estão nos índices 0 a 4\nconst topGainers = items.slice(0, 5); \n\n// Os 5 Top Losers estão nos índices 20 a 24 (supondo que a API retorna 20 gainers, os losers começam no índice 20)\nconst topLosers = items.slice(20, 25);     \n\n// Função auxiliar para criar a tabela HTML\nfunction formatList(title, list, isPositive) {\n    let html = `<h2>${title}</h2>`;\n    html += '<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\" style=\"width: 100%; border-collapse: collapse;\">';\n    html += '<tr style=\"background-color: #f2f2f2;\"><th>Ação (Ticker)</th><th>Variação Percentual</th></tr>';\n    \n    // Dentro da função formatList:\nlist.forEach(item => {\n    const color = isPositive ? 'green' : 'red';\n    \n    // Variável que pode estar undefined\n    const changeValue = item.json.change_percentage; \n    \n    // VERIFICAÇÃO DE SEGURANÇA: Se o valor for um número, formata. Caso contrário, exibe 'N/A'.\n    const percent = (changeValue !== undefined && !isNaN(changeValue)) \n        ? changeValue.toFixed(2) + '%' \n        : 'N/A';\n    \n    // ... restante do HTML ...\n        \n        html += `<tr>\n                    <td>${item.json.ticker}</td>\n                    <td style=\"color: ${color}; font-weight: bold;\">${percent}</td>\n                 </tr>`;\n    });\n    \n    html += '</table>';\n    return html;\n}\n\n// Monta o corpo completo do relatório\nconst reportHTML = `\n    <h1>📊 Resumo do Mercado Diário: Top & Flop 5</h1>\n    <p>Relatório gerado por automação via n8n.</p>\n    ${formatList('🚀 As 5 Maiores Altas', topGainers, true)}\n    <br>\n    ${formatList('📉 As 5 Maiores Baixas', topLosers, false)}\n    <p>Dados fornecidos pela Alpha Vantage.</p>\n`;\n\n// Retorna o resultado em um único item para o próximo nó\nreturn [{\n    json: {\n        reportBody: reportHTML\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        400,
+        0
+      ],
+      "id": "b01ff408-7509-4fd9-a0b0-be6a180ff8c5",
+      "name": "Code in JavaScript1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "16b36ff3-aff8-4fbf-ac91-822c698cf108",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "97aa7a41d91ee5aac5ba6c12ccd040c8573c788d38ca6cbcc5ed1f3fdad75f6c"
+  },
+  "id": "lFs8koAwka5DqBru",
+  "tags": []
+}
